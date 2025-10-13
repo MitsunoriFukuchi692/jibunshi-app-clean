@@ -1,43 +1,46 @@
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
 import os
+from flask import Flask, render_template, request, jsonify
 from openai import OpenAI
 
-load_dotenv()
+# --- OpenAIクライアント ---
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
 app = Flask(__name__)
 
-API_KEY = os.getenv("OPENAI_API_KEY")
-if not API_KEY:
-    print("⚠ OPENAI_API_KEY が読み込めていません（.envを確認）")
-client = OpenAI(api_key=API_KEY)
-
+# --- フロントページ ---
 @app.route("/")
 def index():
     return render_template("index.html")
 
+# --- /generate エンドポイント ---
 @app.route("/generate", methods=["POST"])
 def generate():
     try:
         data = request.get_json()
-        prompt = (data or {}).get("prompt", "").strip()
+        prompt = data.get("prompt", "").strip()
+
         if not prompt:
             return jsonify({"error": "プロンプトが空です"}), 400
 
-        res = client.chat.completions.create(
-            model="gpt-4o-mini",
+        # OpenAI API呼び出し
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",   # 軽くて高速
             messages=[
-                {"role": "system", "content": "あなたは自分史作成のサポートAIです。"},
+                {"role": "system", "content": "あなたは聞き手となって、温かく丁寧な日本語で自分史の文章を整えるAIです。"},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=500,
+            max_tokens=800,
+            temperature=0.8,
         )
-        text = res.choices[0].message.content.strip()
-        return jsonify({"result": text})
-    except Exception as e:
-        # サーバー側のログに詳細を出す
-        import traceback; traceback.print_exc()
-        # ブラウザ側にも原因が分かるよう返す
-        return jsonify({"error": f"SERVER_ERROR: {type(e).__name__}: {e}"}), 500
 
+        output_text = response.choices[0].message.content.strip()
+        return jsonify({"text": output_text})
+
+    except Exception as e:
+        print("Error in /generate:", e)
+        return jsonify({"error": str(e)}), 500
+
+# --- Renderなどで必要 ---
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
