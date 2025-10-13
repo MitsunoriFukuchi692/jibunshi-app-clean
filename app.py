@@ -12,6 +12,10 @@ app = Flask(__name__)
 def index():
     return render_template("index.html")
 
+@app.route("/jibunshi")
+def jibunshi():
+    return render_template("index.html")
+
 # --- /generate エンドポイント ---
 @app.route("/generate", methods=["POST"])
 def generate():
